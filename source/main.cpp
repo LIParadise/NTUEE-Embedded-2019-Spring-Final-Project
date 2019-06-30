@@ -69,12 +69,12 @@ class USB_Device : ble::Gap::EventHandler {
       _ble.onDisconnection(disconnectionCallback);
       _ble.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
       _ble.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
-      _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
-      _ble.accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
-      _ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
-      _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
-      _ble.setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
-      _ble.setAdvertisingInterval(1000);
+      _ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
+      _ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
+      _ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
+      _ble.gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
+      _ble.gap().setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
+      _ble.gap().setAdvertisingInterval(1000);
 
       _event_queue.call_every(500, this, &USB_Device::blink);
 
@@ -114,7 +114,7 @@ class USB_Device : ble::Gap::EventHandler {
 
     void start_advertising()
     {
-      _ble.startAdvertising();
+      _ble.gap().startAdvertising();
     }
 
     void blink(void) {
