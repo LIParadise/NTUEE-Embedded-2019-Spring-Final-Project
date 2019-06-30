@@ -14,13 +14,13 @@ const static char DEVICE_NAME[] = "USB Device";
 
 static events::EventQueue event_queue(/* event count */ 16 * EVENTS_EVENT_SIZE);
 
+class USB_Device ;
 
 static char msg[25] = {'\0'};
 static uint8_t key_press_scan_buff[50] = {'\0'};
 static uint8_t modifyKey[50] = {'\0'};
 static char keyData;
-
-DigitalOut led(LED1);
+USB_Device* demoPtr = NULL;
 
 class USB_Device : ble::Gap::EventHandler {
 public:
@@ -39,7 +39,6 @@ public:
         _ble.init(this, &USB_Device::on_init_complete);
 
         _event_queue.call_every(500, this, &USB_Device::blink);
-        _event_queue.call_every(1, this, &USB_Device::update_keyboard_value);
 
         _event_queue.dispatch_forever();
     }    
@@ -49,6 +48,12 @@ public:
             _hid_service.updateReport(modifyKey[i], key_press_scan_buff[i]);
         }
     }
+
+    bool connected() {
+        return _ble.getGapState().connected;
+    }
+
+
 
 private:
     /** Callback triggered when the ble initialization process has finished */
@@ -150,11 +155,6 @@ void schedule_ble_events(BLE::OnEventsToProcessCallbackContext *context) {
     event_queue.call(Callback<void()>(&context->ble, &BLE::processEvents));
 }
 
-BLE &ble = BLE::Instance();
-ble.onEventsToProcess(schedule_ble_events);
-USB_Device demo(ble, event_queue);
-
-
 void onKey(uint8_t key)
 {
     printf("Key: %c\r\n", key);
@@ -214,14 +214,13 @@ void onKey(uint8_t key)
 
     index_b++;
 
-    if (keyData == 0x0a && ble.getGapState().connected)
+    if (keyData == 0x0a && demoPtr -> connected())
     {
         for (int i = 0; i < index_b; i++)
         {
-            demo.update_keyboard_value(i);
+            demoPtr -> update_keyboard_value(i);
             wait(0.03);
         }
-        
         index_b = 0;
         index_w = 0;
         memset(modifyKey, 0, 50);
@@ -232,7 +231,7 @@ void onKey(uint8_t key)
 
 
 
-void keyboard_task(USB_Device * const usbDevicePtr) {
+void keyboard_task(void const *) {
     
     USBHostKeyboard keyboard;
     
@@ -255,10 +254,15 @@ int main()
 {
 
 
+    BLE &ble = BLE::Instance();
+    ble.onEventsToProcess(schedule_ble_events);
+    USB_Device demo(ble, event_queue);
+    demoPtr = &demo;
+
     HIDService hidService(ble);
     demo.start();
 
-    Thread keyboardTask(keyboard_task, &demo, osPriorityNormal, 1024 * 4);
+    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
 
     return 0;
 }
