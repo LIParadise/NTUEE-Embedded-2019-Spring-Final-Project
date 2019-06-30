@@ -1,0 +1,5 @@
+mbed-os
+.vscode
+.build
+BUILD
+*.py*

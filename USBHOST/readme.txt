@@ -1,0 +1,1 @@
+This contains STM support for USB HOST based on STM HAL , present in mbed official delivery.
