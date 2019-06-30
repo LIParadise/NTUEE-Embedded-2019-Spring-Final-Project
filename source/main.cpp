@@ -14,106 +14,13 @@ const static char DEVICE_NAME[] = "USB Device";
 
 static events::EventQueue event_queue(/* event count */ 16 * EVENTS_EVENT_SIZE);
 
+
+static char msg[25] = {'\0'};
+static uint8_t key_press_scan_buff[50] = {'\0'};
+static uint8_t modifyKey[50] = {'\0'};
+static char keyData;
+
 DigitalOut led(LED1);
-
-void onKey(uint8_t key)
-{
-    printf("Key: %c\r\n", key);
-    static char msg[25] = {'\0'};
-    static uint8_t key_press_scan_buff[50] = {'\0'};
-    static uint8_t modifyKey[50] = {'\0'};
-    int index_w, index_b;
-    index_w = index_b = 0;
-
-    char keyData = key;
-    
-    msg[index_w++] = keyData;
-    if (keyData <= 0x39 && keyData >= 0x30)
-    { //number
-        if (keyData == 0x30)
-        {
-            modifyKey[index_b] = 0x00;
-            key_press_scan_buff[index_b] = 0x27;
-            index_b++;
-            key_press_scan_buff[index_b] = 0x73;
-        }
-        else
-        {
-            modifyKey[index_b] = 0x00;
-            key_press_scan_buff[index_b] = keyData - 0x13;
-            index_b++;
-            key_press_scan_buff[index_b] = 0x73;
-        }
-    }
-    else if (keyData <= 0x7a && keyData >= 0x61)
-    { //lowercase letters
-        modifyKey[index_b] = 0x00;
-        key_press_scan_buff[index_b] = keyData - 0x5d;
-        index_b++;
-        key_press_scan_buff[index_b] = 0x73;
-    }
-    else if (keyData <= 0x5a && keyData >= 0x41)
-    { //uppercase letters
-        modifyKey[index_b] = 0x02;
-        key_press_scan_buff[index_b] = keyData - 0x3d;
-        index_b++;
-        key_press_scan_buff[index_b] = 0x73;
-    }
-    else if (keyData == 0x20)
-    { //space
-        modifyKey[index_b] = 0x00;
-        key_press_scan_buff[index_b] = 0x2c;
-        index_b++;
-        key_press_scan_buff[index_b] = 0x73;
-    }
-    else
-    {
-        modifyKey[index_b] = 0x00;
-        //key_press_scan_buff[index_b] = 0x73;          //this is dummy data.
-        //msg[index_w+1] = '\0';
-    }
-    index_b++;
-    if (keyData == 0x0a && ble.getGapState().connected)
-    {
-        flip_lock = true;
-        RFSWIO = 0; // RF Switch to BLE and lockup temporary
-        for (int i = 0; i < index_b; i++)
-        {
-            hidService.updateReport(modifyKey[i], key_press_scan_buff[i]);
-            wait(0.03);
-        }
-        flip_lock = false;
-
-        flip_lock = true;
-        RFSWIO = 1; // RF Switch to WiFi and lockup temporary
-        socket.send(msg, sizeof(msg));
-        flip_lock = false;
-
-        index_b = 0;
-        index_w = 0;
-        memset(modifyKey, 0, 50);
-        memset(msg, 0, 25);
-        memset(key_press_scan_buff, 0, 50);
-    }
-}
-void keyboard_task(void const *) {
-    
-    USBHostKeyboard keyboard;
-    
-    while(1) {
-        // try to connect a USB keyboard
-        while(!keyboard.connect())
-            Thread::wait(500);
-    
-        // when connected, attach handler called on keyboard event
-        printf("Keyboard has been detected");
-        keyboard.attach(onKey);
-        
-        // wait until the keyboard is disconnected
-        while(keyboard.connected())
-            Thread::wait(500);
-    }
-}
 
 class USB_Device : ble::Gap::EventHandler {
 public:
@@ -135,6 +42,12 @@ public:
         _event_queue.call_every(1, this, &USB_Device::update_keyboard_value);
 
         _event_queue.dispatch_forever();
+    }    
+
+    void update_keyboard_value(int i) {
+        if (_connected) {
+            _hid_service.updateReport(modifyKey[i], key_press_scan_buff[i]);
+        }
     }
 
 private:
@@ -195,11 +108,7 @@ private:
         }
     }
 
-    void update_keyboard_value() {
-        if (_connected) {
-            _hid_service.updateReport(modifyKey[i], key_press_scan_buff[i]);
-        }
-    }
+
 
     void blink(void) {
         _led1 = !_led1;
@@ -241,21 +150,115 @@ void schedule_ble_events(BLE::OnEventsToProcessCallbackContext *context) {
     event_queue.call(Callback<void()>(&context->ble, &BLE::processEvents));
 }
 
-int main()
+BLE &ble = BLE::Instance();
+ble.onEventsToProcess(schedule_ble_events);
+USB_Device demo(ble, event_queue);
+
+
+void onKey(uint8_t key)
 {
-    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
+    printf("Key: %c\r\n", key);
+
+    int index_w, index_b;
+    index_w = index_b = 0;
+
+    keyData = key;
+    
+    msg[index_w++] = keyData;
+    if (keyData <= 0x39 && keyData >= 0x30)
+    { //number
+        if (keyData == 0x30)
+        {
+            modifyKey[index_b] = 0x00;
+            key_press_scan_buff[index_b] = 0x27;
+            index_b++;
+            key_press_scan_buff[index_b] = 0x73;
+        }
+        else
+        {
+            modifyKey[index_b] = 0x00;
+            key_press_scan_buff[index_b] = keyData - 0x13;
+            index_b++;
+            key_press_scan_buff[index_b] = 0x73;
+        }
+    }
+    else if (keyData <= 0x7a && keyData >= 0x61)
+    { //lowercase letters
+        modifyKey[index_b] = 0x00;
+        key_press_scan_buff[index_b] = keyData - 0x5d;
+        index_b++;
+        key_press_scan_buff[index_b] = 0x73;
+    }
+    else if (keyData <= 0x5a && keyData >= 0x41)
+    { //uppercase letters
+        modifyKey[index_b] = 0x02;
+        key_press_scan_buff[index_b] = keyData - 0x3d;
+        index_b++;
+        key_press_scan_buff[index_b] = 0x73;
+    }
+    else if (keyData == 0x20)
+    { //space
+        modifyKey[index_b] = 0x00;
+        key_press_scan_buff[index_b] = 0x2c;
+        index_b++;
+        key_press_scan_buff[index_b] = 0x73;
+    }
+    else
+    {
+        modifyKey[index_b] = 0x00;
+        //key_press_scan_buff[index_b] = 0x73;          //this is dummy data.
+        //msg[index_w+1] = '\0';
+    }
+
+    // TODO 
+
+    index_b++;
+
+    if (keyData == 0x0a && ble.getGapState().connected)
+    {
+        for (int i = 0; i < index_b; i++)
+        {
+            demo.update_keyboard_value(i);
+            wait(0.03);
+        }
+        
+        index_b = 0;
+        index_w = 0;
+        memset(modifyKey, 0, 50);
+        memset(msg, 0, 25);
+        memset(key_press_scan_buff, 0, 50);
+    }
+}
+
+
+
+void keyboard_task(USB_Device * const usbDevicePtr) {
+    
+    USBHostKeyboard keyboard;
     
     while(1) {
-        led=!led;
-        Thread::wait(500);
+        // try to connect a USB keyboard
+        while(!keyboard.connect())
+            Thread::wait(500);
+    
+        // when connected, attach handler called on keyboard event
+        printf("Keyboard has been detected");
+        keyboard.attach(onKey);
+        
+        // wait until the keyboard is disconnected
+        while(keyboard.connected())
+            Thread::wait(500);
     }
-    
-    
-    BLE &ble = BLE::Instance();
-    ble.onEventsToProcess(schedule_ble_events);
+}
 
-    USB_Device demo(ble, event_queue);
+int main()
+{
+
+
+    HIDService hidService(ble);
     demo.start();
+
+    Thread keyboardTask(keyboard_task, &demo, osPriorityNormal, 1024 * 4);
 
     return 0;
 }
