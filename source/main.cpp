@@ -9,6 +9,7 @@
 #include "USBHostKeyboard.h"
 #include "FATFileSystem.h"
 #include "HIDService.h"
+#include "DeviceInformationService.h"
 
 const static char DEVICE_NAME[] = "USB Device";
 
@@ -22,6 +23,29 @@ static uint8_t modifyKey[50] = {'\0'};
 static char keyData;
 USB_Device* demoPtr = NULL;
 
+void passkeyDisplayCallback(Gap::Handle_t handle, const SecurityManager::Passkey_t passkey)
+{
+    printf("Input passKey: ");
+    for (unsigned i = 0; i < Gap::ADDR_LEN; i++) {
+        printf("%c ", passkey[i]);
+    }
+    printf("\r\n");
+}
+
+void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::SecurityCompletionStatus_t status)
+{
+    if (status == SecurityManager::SEC_STATUS_SUCCESS) {
+        printf("Security success\r\n", status);
+    } else {
+        printf("Security failed\r\n", status);
+    }
+}
+
+void disconnectionCallback(Gap::Handle_t handle, Gap::DisconnectionReason_t reason)
+{
+    demoPtr->public_startAdvertising(); // restart advertising
+}
+
 class USB_Device : ble::Gap::EventHandler {
 public:
     USB_Device(BLE &ble, events::EventQueue &event_queue) :
@@ -31,6 +55,7 @@ public:
         _connected(false),
         _hid_uuid(GattService::UUID_HUMAN_INTERFACE_DEVICE_SERVICE),
         _hid_service(ble),
+        _deviceInfo(ble, "ARM", "CYNTEC", "SN1", "hw-rev1", "fw-rev1", "soft-rev1"),
         _adv_data_builder(_adv_buffer) { }
 
     void start() {
@@ -53,7 +78,9 @@ public:
         return _ble.getGapState().connected;
     }
 
-
+    void public_startAdvertising(){
+        start_advertising();
+    }
 
 private:
     /** Callback triggered when the ble initialization process has finished */
@@ -68,52 +95,26 @@ private:
         start_advertising();
     }
 
-    void start_advertising() {
+    void start_advertising()
+    {
         /* Create advertising parameters and payload */
+        _ble.init();
+        bool enableBonding = true;
+        bool requireMITM = true;
+        //const uint8_t passkeyValue[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
+        _ble.initializeSecurity(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY); //IO_CAPS_DISPLAY_ONLY, IO_CAPS_NONE
+        _ble.onDisconnection(disconnectionCallback);
+        _ble.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
+        _ble.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
+        _ble.setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
+        _ble.setAdvertisingInterval(1000);
 
-        ble::AdvertisingParameters adv_parameters(
-            ble::advertising_type_t::CONNECTABLE_UNDIRECTED,
-            ble::adv_interval_t(ble::millisecond_t(1000))
-        );
-
-        _adv_data_builder.setFlags();
-        _adv_data_builder.setAppearance(ble::adv_data_appearance_t::KEYBOARD);
-        _adv_data_builder.setLocalServiceList(mbed::make_Span(&_hid_uuid, 1));
-        _adv_data_builder.setName(DEVICE_NAME);
-
-        /* Setup advertising */
-
-        ble_error_t error = _ble.gap().setAdvertisingParameters(
-            ble::LEGACY_ADVERTISING_HANDLE,
-            adv_parameters
-        );
-
-        if (error) {
-            printf("_ble.gap().setAdvertisingParameters() failed\r\n");
-            return;
-        }
-
-        error = _ble.gap().setAdvertisingPayload(
-            ble::LEGACY_ADVERTISING_HANDLE,
-            _adv_data_builder.getAdvertisingData()
-        );
-
-        if (error) {
-            printf("_ble.gap().setAdvertisingPayload() failed\r\n");
-            return;
-        }
-
-        /* Start advertising */
-
-        error = _ble.gap().startAdvertising(ble::LEGACY_ADVERTISING_HANDLE);
-
-        if (error) {
-            printf("_ble.gap().startAdvertising() failed\r\n");
-            return;
-        }
+        _ble.startAdvertising();
     }
-
-
 
     void blink(void) {
         _led1 = !_led1;
@@ -145,6 +146,8 @@ private:
     UUID _hid_uuid;
 
     HIDService _hid_service;
+
+    DeviceInformationService _deviceInfo;
 
     uint8_t _adv_buffer[ble::LEGACY_ADVERTISING_MAX_SIZE];
     ble::AdvertisingDataBuilder _adv_data_builder;

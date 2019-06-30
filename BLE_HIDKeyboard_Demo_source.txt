@@ -1,0 +1,168 @@
+#include "mbed.h"
+#include "BLE.h"
+#include "BatteryService.h"
+#include "DeviceInformationService.h"
+#include "HIDService.h"
+#include "WIFIDevice.h"
+#include "EthernetInterface.h"
+
+BLEDevice  ble;
+DigitalOut led01(p7);
+Serial uart(p25,p23);
+DigitalOut RFSWIO(p19);
+Ticker flipper;
+WIFIDevice wifi;
+EthernetInterface eth;
+
+bool flip_lock = false;
+
+void flip()
+{
+    if (!flip_lock) RFSWIO = !RFSWIO;
+}
+
+unsigned char keyData;
+bool is_input = false;
+char* ap_ssid = "Tsungta_iPhone";
+char* ap_pw = "icq87001";
+const char* PC_SERVER_ADDRESS = "172.20.10.4";
+uint16_t PC_PORT = 5222;
+
+static const char     DEVICE_NAME[]        = "HID_Keyboard";
+static const uint16_t uuid16_list[]        = {GattService::UUID_HUMAN_INTERFACE_DEVICE_SERVICE};
+static volatile bool  triggerSensorPolling = false;
+
+void disconnectionCallback(Gap::Handle_t handle, Gap::DisconnectionReason_t reason)
+{
+    ble.startAdvertising(); // restart advertising
+}
+
+void passkeyDisplayCallback(Gap::Handle_t handle, const SecurityManager::Passkey_t passkey)
+{
+    printf("Input passKey: ");
+    for (unsigned i = 0; i < Gap::ADDR_LEN; i++) {
+        printf("%c ", passkey[i]);
+    }
+    printf("\r\n");
+}
+
+void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::SecurityCompletionStatus_t status)
+{
+    if (status == SecurityManager::SEC_STATUS_SUCCESS) {
+        printf("Security success\r\n", status);
+    } else {
+        printf("Security failed\r\n", status);
+    }
+}
+
+
+static uint8_t key_press_scan_buff[50];
+static uint8_t modifyKey[50];
+char msg[25] = "NNN40 CONNECTED\n";
+int main(void)
+{
+    uart.baud(115200);
+    uart.printf("Starting HID Service\n");
+    RFSWIO = 1;
+    EthernetInterface eth;
+    eth.init(); //Use DHCP
+    wifi.setNetwork(ap_ssid, ap_pw, 0); // set given SSID and PW as the highest priority
+    eth.connect(40000);
+    led01 = 1;
+    TCPSocketConnection socket;
+    socket.connect(PC_SERVER_ADDRESS,PC_PORT);
+    socket.send(msg, sizeof(msg));
+    memset(msg, 0, 25);
+    /*======BLE setup========*/
+    ble.init();
+    bool enableBonding = true;
+    bool requireMITM   = true;
+    //const uint8_t passkeyValue[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
+    ble.initializeSecurity(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY);  //IO_CAPS_DISPLAY_ONLY, IO_CAPS_NONE
+    ble.onDisconnection(disconnectionCallback);
+    ble.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
+    ble.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
+
+    /* Setup primary service. */
+    HIDService hidService(ble);
+    /* Setup auxiliary service. */
+    DeviceInformationService deviceInfo(ble, "ARM", "CYNTEC", "SN1", "hw-rev1", "fw-rev1", "soft-rev1");
+    /* Setup advertising. */
+    ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
+    ble.accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
+    ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
+    ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
+    ble.setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
+    ble.setAdvertisingInterval(1000);
+
+    RFSWIO = 1;
+    ble.startAdvertising();
+    uart.printf("Starting advertising\n");
+    wait(5);
+    flipper.attach(&flip, 0.15);
+    int index_b = 0;
+    int index_w = 0;
+
+    while (1) {
+        if (uart.readable() == 1) {
+            keyData = uart.getc();
+            uart.putc(keyData);
+            msg[index_w++] = keyData;
+            if(keyData <= 0x39 && keyData >= 0x30) {            //number
+                if(keyData == 0x30) {
+                    modifyKey[index_b] = 0x00;
+                    key_press_scan_buff[index_b] = 0x27;
+                    index_b++;
+                    key_press_scan_buff[index_b] = 0x73;
+                } else {
+                    modifyKey[index_b] = 0x00;
+                    key_press_scan_buff[index_b] = keyData-0x13;
+                    index_b++;
+                    key_press_scan_buff[index_b] = 0x73;
+                }
+            } else if(keyData <= 0x7a && keyData >= 0x61 ) { //lowercase letters
+                modifyKey[index_b] = 0x00;
+                key_press_scan_buff[index_b] = keyData-0x5d;
+                index_b++;
+                key_press_scan_buff[index_b] = 0x73;
+            } else if(keyData <= 0x5a && keyData >= 0x41) { //uppercase letters
+                modifyKey[index_b] = 0x02;
+                key_press_scan_buff[index_b] = keyData-0x3d;
+                index_b++;
+                key_press_scan_buff[index_b] = 0x73;
+            } else if (keyData == 0x20) {                   //space
+                modifyKey[index_b] = 0x00;
+                key_press_scan_buff[index_b] = 0x2c;
+                index_b++;
+                key_press_scan_buff[index_b] = 0x73;
+            } else {
+                modifyKey[index_b] = 0x00;
+                //key_press_scan_buff[index_b] = 0x73;          //this is dummy data.
+                //msg[index_w+1] = '\0';
+            }
+            index_b++;
+            if(keyData == 0x0a && ble.getGapState().connected) {
+                flip_lock = true;
+                RFSWIO = 0;// RF Switch to BLE and lockup temporary
+                for(int i = 0; i < index_b ; i++) {
+                    hidService.updateReport(modifyKey[i], key_press_scan_buff[i]);
+                    wait(0.03);
+                }
+                flip_lock = false;
+
+                flip_lock = true;
+                RFSWIO = 1;// RF Switch to WiFi and lockup temporary
+                socket.send(msg, sizeof(msg));
+                flip_lock = false;
+
+                index_b = 0;
+                index_w = 0;
+                memset(modifyKey, 0, 50);
+                memset(msg, 0, 25);
+                memset(key_press_scan_buff, 0, 50);
+            }
+
+        }
+    }
+}
+
