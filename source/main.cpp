@@ -23,14 +23,14 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params);
 void passkeyDisplayCallback(Gap::Handle_t handle, const SecurityManager::Passkey_t passkey)
 {
     HID_DEBUG("HID_DEBUG Input passKey: ");
-    printf(   "printf    Input passKey: ");
+    printf("printf    Input passKey: ");
     for (unsigned i = 0; i < Gap::ADDR_LEN; i++)
     {
         HID_DEBUG("%c ", passkey[i]);
         printf("%c ", passkey[i]);
     }
     HID_DEBUG("HID_DEBUG \r\n");
-    printf(   "printf    \r\n");
+    printf("printf    \r\n");
 }
 
 void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::SecurityCompletionStatus_t status)
@@ -38,26 +38,27 @@ void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::Secur
     if (status == SecurityManager::SEC_STATUS_SUCCESS)
     {
         HID_DEBUG("hid_debug Security success\r\n", status);
-        printf(   "printf    Security Success\r\n");
+        printf("printf    Security Success\r\n");
     }
     else
     {
         HID_DEBUG("hid_debug Security failed\r\n", status);
-        printf(   "printf    Security Failed\r\n");
+        printf("printf    Security Failed\r\n");
     }
 }
 
 static void securitySetupInitiatedCallback(Gap::Handle_t, bool allowBonding, bool requireMITM, SecurityManager::SecurityIOCapabilities_t iocaps)
 {
     HID_DEBUG("hid_debug Security setup initiated\r\n");
-    printf(   "printf    Security setup initiated\r\n");
+    printf("printf    Security setup initiated\r\n");
 }
 
 void connectionCallback(const Gap::ConnectionCallbackParams_t *params)
 {
     HID_DEBUG("hid_debug connected\r\n");
-    printf(   "printf    connected\r\n");
+    printf("printf    connected\r\n");
 }
+
 class USB_Device : ble::Gap::EventHandler
 {
 public:
@@ -88,14 +89,14 @@ public:
         if (!_connected)
         {
             HID_DEBUG("hid_debug not connected yet...");
-            printf(   "printf    not connected yet...");
+            printf("printf    not connected yet...");
         }
         else
         {
             int len = strlen(c);
             _hid_service.printf(c);
             HID_DEBUG("hid_debug sending %d chars\r\n", len);
-            printf(   "printf    sending %d chars\r\n", len);
+            printf("printf    sending %d chars\r\n", len);
         }
     }
 
@@ -106,7 +107,7 @@ private:
         if (params->error != BLE_ERROR_NONE)
         {
             HID_DEBUG("HID_DEBUG Ble initialization failed.");
-            printf   ("printf    Ble initialization failed.");
+            printf("printf    Ble initialization failed.");
             return;
         }
 
@@ -126,8 +127,6 @@ private:
         _adv_data_builder.setLocalServiceList(mbed::make_Span(&_hid_uuid, 1));
         _adv_data_builder.setName(DEVICE_NAME);
 
-        _ble.init(this, &USB_Device::on_init_complete);
-
         /* Setup advertising */
 
         ble_error_t error = _ble.gap().setAdvertisingParameters(
@@ -136,7 +135,7 @@ private:
 
         if (error)
         {
-            printf   ("printf    _ble.gap().setAdvertisingParameters() failed\r\n");
+            printf("printf    _ble.gap().setAdvertisingParameters() failed\r\n");
             HID_DEBUG("hid_debug _ble.gap().setAdvertisingParameters() failed\r\n");
             return;
         }
@@ -147,7 +146,7 @@ private:
 
         if (error)
         {
-            printf   ("printf    _ble.gap().setAdvertisingPayload() failed\r\n");
+            printf("printf    _ble.gap().setAdvertisingPayload() failed\r\n");
             HID_DEBUG("hid_debug _ble.gap().setAdvertisingPayload() failed\r\n");
             return;
         }
@@ -158,12 +157,12 @@ private:
 
         if (error)
         {
-            printf(    "printf    _ble.gap().startAdvertising() failed\r\n");
-            HID_DEBUG( "hid_debug _ble.gap().startAdvertising() failed\r\n");
+            printf("printf    _ble.gap().startAdvertising() failed\r\n");
+            HID_DEBUG("hid_debug _ble.gap().startAdvertising() failed\r\n");
             return;
         }
 
-        printf(   "printf    started advertising\r\n");
+        printf("printf    started advertising\r\n");
         HID_DEBUG("hid_debug started advertising\r\n");
     }
 
@@ -180,7 +179,7 @@ private:
         _ble.gap().startAdvertising(ble::LEGACY_ADVERTISING_HANDLE);
         _connected = false;
         HID_DEBUG("hid_debug disconnected.\r\n");
-        printf   ("printf    disconnected.\r\n");
+        printf("printf    disconnected.\r\n");
     }
 
     virtual void onConnectionComplete(const ble::ConnectionCompleteEvent &event)
@@ -190,7 +189,7 @@ private:
             _connected = true;
         }
         HID_DEBUG("hid_debug connected.\r\n");
-        printf   ("printf    connected.\r\n");
+        printf("printf    connected.\r\n");
     }
 
 private:
@@ -223,7 +222,7 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params)
 void onKey(uint8_t key)
 {
     HID_DEBUG("HID_DEBUG Key: %c\r\n", key);
-    printf(   "printf    Key: %c\r\n", key);
+    printf("printf    Key: %c\r\n", key);
     char tmp_key = key;
     char *keyPtr = &tmp_key;
     demoPtr->send_string(keyPtr);
@@ -242,7 +241,7 @@ void keyboard_task(void const *)
 
         // when connected, attach handler called on keyboard event
         HID_DEBUG("HID_DEBUG Keyboard has been detected\r\n");
-        printf(   "printf    Keyboard has been detected\r\n");
+        printf("printf    Keyboard has been detected\r\n");
         keyboard.attach(onKey);
 
         // wait until the keyboard is disconnected
@@ -253,13 +252,11 @@ void keyboard_task(void const *)
 
 int main()
 {
-
-    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
-
     BLE &ble = BLE::Instance();
     ble.onEventsToProcess(schedule_ble_events);
     USB_Device demo(ble, event_queue);
     demoPtr = &demo;
+    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
 
     demo.start();
 
