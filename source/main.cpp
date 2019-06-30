@@ -61,9 +61,26 @@ public:
 
         _ble.init(this, &USB_Device::on_init_complete);
 
+                /* Create advertising parameters and payload */
+        bool enableBonding = true;
+        bool requireMITM = true;
+        //const uint8_t passkeyValue[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
+        _ble.initializeSecurity(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY); //IO_CAPS_DISPLAY_ONLY, IO_CAPS_NONE
+        _ble.onDisconnection(disconnectionCallback);
+        _ble.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
+        _ble.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
+        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
+        _ble.setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
+        _ble.setAdvertisingInterval(1000);
+
         _event_queue.call_every(500, this, &USB_Device::blink);
 
         _event_queue.dispatch_forever();
+
+
     }    
 
     void update_keyboard_value(int i) {
@@ -95,22 +112,6 @@ private:
 
     void start_advertising()
     {
-        /* Create advertising parameters and payload */
-        _ble.init();
-        bool enableBonding = true;
-        bool requireMITM = true;
-        //const uint8_t passkeyValue[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
-        _ble.initializeSecurity(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY); //IO_CAPS_DISPLAY_ONLY, IO_CAPS_NONE
-        _ble.onDisconnection(disconnectionCallback);
-        _ble.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
-        _ble.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
-        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
-        _ble.accumulateAdvertisingPayload(GapAdvertisingData::KEYBOARD);
-        _ble.accumulateAdvertisingPayload(GapAdvertisingData::BREDR_NOT_SUPPORTED | GapAdvertisingData::LE_GENERAL_DISCOVERABLE);
-        _ble.accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list));
-        _ble.setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
-        _ble.setAdvertisingInterval(1000);
-
         _ble.startAdvertising();
     }
 
@@ -247,7 +248,7 @@ void keyboard_task(void const *) {
             Thread::wait(500);
     
         // when connected, attach handler called on keyboard event
-        printf("Keyboard has been detected");
+        printf("Keyboard has been detected\r\n");
         keyboard.attach(onKey);
         
         // wait until the keyboard is disconnected
@@ -268,7 +269,6 @@ int main()
     HIDService hidService(ble);
     demo.start();
 
-    
 
     return 0;
 }
