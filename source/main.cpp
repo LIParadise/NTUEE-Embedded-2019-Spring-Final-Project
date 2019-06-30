@@ -23,31 +23,30 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params);
 
 void passkeyDisplayCallback(Gap::Handle_t handle, const SecurityManager::Passkey_t passkey)
 {
-  printf("Input passKey: ");
+  HID_DEBUG("Input passKey: ");
   for (unsigned i = 0; i < Gap::ADDR_LEN; i++) {
-    printf("%c ", passkey[i]);
+    HID_DEBUG("%c ", passkey[i]);
   }
-  printf("\r\n");
+  HID_DEBUG("\r\n");
 }
 
 void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::SecurityCompletionStatus_t status)
 {
   if (status == SecurityManager::SEC_STATUS_SUCCESS) {
-    printf("Security success\r\n", status);
+    HID_DEBUG("Security success\r\n", status);
   } else {
-    printf("Security failed\r\n", status);
+    HID_DEBUG("Security failed\r\n", status);
   }
 }
 
 static void securitySetupInitiatedCallback(Gap::Handle_t, bool allowBonding, bool requireMITM, SecurityManager::SecurityIOCapabilities_t iocaps)
 {
-    printf("Security setup initiated\r\n");
+    HID_DEBUG("Security setup initiated\r\n");
 }
 
 void connectionCallback(const Gap::ConnectionCallbackParams_t *params)
 {
     HID_DEBUG("connected\r\n");
-    waiting_led = false;
 }
 class USB_Device : ble::Gap::EventHandler {
   public:
@@ -70,7 +69,6 @@ class USB_Device : ble::Gap::EventHandler {
       bool enableBonding = true;
       bool requireMITM = true;
       //const uint8_t passkeyValue[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
-      _ble.initializeSecurity(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY); //IO_CAPS_DISPLAY_ONLY, IO_CAPS_NONE
       _ble.gap().onDisconnection(disconnectionCallback);
       _ble.gap().onConnection(connectionCallback);
       _ble.securityManager().onSecuritySetupInitiated(securitySetupInitiatedCallback);
@@ -84,11 +82,8 @@ class USB_Device : ble::Gap::EventHandler {
       _ble.gap().setAdvertisingType(GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED);
       _ble.gap().setAdvertisingInterval(50);
 
-      _event_queue.dispatch_forever();
-
       public_startAdvertising();
-
-
+      HID_DEBUG( " AD \r\n");
     }    
 
     bool connected() {
@@ -100,8 +95,8 @@ class USB_Device : ble::Gap::EventHandler {
     }
     
     void send_string(const char * c) {    
-        if (!_connected) {
-            HID_DEBUG("we haven't connected yet...");
+        if (!connected()) {
+            HID_DEBUG("not connected yet...");
         } else {
             int len = strlen(c);
             _hid_service.printf(c);
@@ -113,13 +108,13 @@ class USB_Device : ble::Gap::EventHandler {
     /** Callback triggered when the ble initialization process has finished */
     void on_init_complete(BLE::InitializationCompleteCallbackContext *params) {
       if (params->error != BLE_ERROR_NONE) {
-        printf("Ble initialization failed.");
+        HID_DEBUG("Ble initialization failed.");
         return;
       }
 
       print_mac_address();
 
-      start_advertising();
+      public_startAdvertising();
     }
 
     void start_advertising()
@@ -139,14 +134,14 @@ class USB_Device : ble::Gap::EventHandler {
     void onDisconnectionComplete(const ble::DisconnectionCompleteEvent&) {
       _ble.gap().startAdvertising(ble::LEGACY_ADVERTISING_HANDLE);
       _connected = false;
-      printf( "disconnected.\r\n" );
+      HID_DEBUG( "disconnected.\r\n" );
     }
 
     virtual void onConnectionComplete(const ble::ConnectionCompleteEvent &event) {
       if (event.getStatus() == BLE_ERROR_NONE) {
         _connected = true;
       }
-      printf( "connected.\r\n" );
+      HID_DEBUG( "connected.\r\n" );
     }
 
   private:
@@ -177,12 +172,12 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params)
 
 void onKey(uint8_t key)
 {
-  printf("Key: %c\r\n", key);  
-  char * keydata = reinterpret_cast<char*>(&key);
-  demoPtr->send_string(keydata);
+  HID_DEBUG("HID_DEBUG Key: %c\r\n", key);  
+  printf   ("printf    Key: %c\r\n", key);
+  char tmp_key = key;
+  char* keyPtr = &tmp_key;
+  demoPtr->send_string(keyPtr);
 }
-
-
 
 void keyboard_task(void const *) {
 
@@ -194,7 +189,8 @@ void keyboard_task(void const *) {
       Thread::wait(500);
 
     // when connected, attach handler called on keyboard event
-    printf("Keyboard has been detected\r\n");
+    HID_DEBUG("HID_DEBUG Keyboard has been detected\r\n");
+    printf   ("printf    Keyboard has been detected\r\n");
     keyboard.attach(onKey);
 
     // wait until the keyboard is disconnected
