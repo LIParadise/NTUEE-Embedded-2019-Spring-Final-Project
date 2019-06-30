@@ -22,41 +22,41 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params);
 
 void passkeyDisplayCallback(Gap::Handle_t handle, const SecurityManager::Passkey_t passkey)
 {
-    HID_DEBUG("HID Input passKey: ");
-    printf("printf Input passKey: ");
+    HID_DEBUG("HID_DEBUG Input passKey: ");
+    printf(   "printf    Input passKey: ");
     for (unsigned i = 0; i < Gap::ADDR_LEN; i++)
     {
         HID_DEBUG("%c ", passkey[i]);
         printf("%c ", passkey[i]);
     }
-    HID_DEBUG("\r\n");
-    printf("\r\n");
+    HID_DEBUG("HID_DEBUG \r\n");
+    printf(   "printf    \r\n");
 }
 
 void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::SecurityCompletionStatus_t status)
 {
     if (status == SecurityManager::SEC_STATUS_SUCCESS)
     {
-        HID_DEBUG("Security success\r\n", status);
-        printf("printf Security Success\r\n");
+        HID_DEBUG("hid_debug Security success\r\n", status);
+        printf(   "printf    Security Success\r\n");
     }
     else
     {
-        HID_DEBUG("Security failed\r\n", status);
-        printf("printf Security Failed\r\n");
+        HID_DEBUG("hid_debug Security failed\r\n", status);
+        printf(   "printf    Security Failed\r\n");
     }
 }
 
 static void securitySetupInitiatedCallback(Gap::Handle_t, bool allowBonding, bool requireMITM, SecurityManager::SecurityIOCapabilities_t iocaps)
 {
-    HID_DEBUG("Security setup initiated\r\n");
-    printf("printf Security setup initiated\r\n");
+    HID_DEBUG("hid_debug Security setup initiated\r\n");
+    printf(   "printf    Security setup initiated\r\n");
 }
 
 void connectionCallback(const Gap::ConnectionCallbackParams_t *params)
 {
-    HID_DEBUG("connected\r\n");
-    printf("printf connected\r\n");
+    HID_DEBUG("hid_debug connected\r\n");
+    printf(   "printf    connected\r\n");
 }
 class USB_Device : ble::Gap::EventHandler
 {
@@ -87,13 +87,15 @@ public:
     {
         if (!_connected)
         {
-            HID_DEBUG("not connected yet...");
+            HID_DEBUG("hid_debug not connected yet...");
+            printf(   "printf    not connected yet...");
         }
         else
         {
             int len = strlen(c);
             _hid_service.printf(c);
-            HID_DEBUG("sending %d chars\r\n", len);
+            HID_DEBUG("hid_debug sending %d chars\r\n", len);
+            printf(   "printf    sending %d chars\r\n", len);
         }
     }
 
@@ -103,7 +105,8 @@ private:
     {
         if (params->error != BLE_ERROR_NONE)
         {
-            HID_DEBUG("Ble initialization failed.");
+            HID_DEBUG("HID_DEBUG Ble initialization failed.");
+            printf   ("printf    Ble initialization failed.");
             return;
         }
 
@@ -220,7 +223,7 @@ void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params)
 void onKey(uint8_t key)
 {
     HID_DEBUG("HID_DEBUG Key: %c\r\n", key);
-    printf("printf    Key: %c\r\n", key);
+    printf(   "printf    Key: %c\r\n", key);
     char tmp_key = key;
     char *keyPtr = &tmp_key;
     demoPtr->send_string(keyPtr);
@@ -239,7 +242,7 @@ void keyboard_task(void const *)
 
         // when connected, attach handler called on keyboard event
         HID_DEBUG("HID_DEBUG Keyboard has been detected\r\n");
-        printf("printf    Keyboard has been detected\r\n");
+        printf(   "printf    Keyboard has been detected\r\n");
         keyboard.attach(onKey);
 
         // wait until the keyboard is disconnected

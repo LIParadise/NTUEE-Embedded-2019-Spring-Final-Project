@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "BLE_HID/**",
-                "source/**"
+                "source/**",
+                "mbed-os/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
