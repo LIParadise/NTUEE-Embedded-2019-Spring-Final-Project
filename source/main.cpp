@@ -17,6 +17,7 @@ static events::EventQueue event_queue(/* event count */ 16 * EVENTS_EVENT_SIZE);
 
 class USB_Device ;
 
+static const uint16_t uuid16_list[]        = {GattService::UUID_HUMAN_INTERFACE_DEVICE_SERVICE};
 static char msg[25] = {'\0'};
 static uint8_t key_press_scan_buff[50] = {'\0'};
 static uint8_t modifyKey[50] = {'\0'};
@@ -41,10 +42,7 @@ void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::Secur
     }
 }
 
-void disconnectionCallback(Gap::Handle_t handle, Gap::DisconnectionReason_t reason)
-{
-    demoPtr->public_startAdvertising(); // restart advertising
-}
+void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params);
 
 class USB_Device : ble::Gap::EventHandler {
 public:
@@ -158,6 +156,11 @@ void schedule_ble_events(BLE::OnEventsToProcessCallbackContext *context) {
     event_queue.call(Callback<void()>(&context->ble, &BLE::processEvents));
 }
 
+void disconnectionCallback(const Gap::DisconnectionCallbackParams_t *params)
+{
+    demoPtr->public_startAdvertising(); // restart advertising
+}
+
 void onKey(uint8_t key)
 {
     printf("Key: %c\r\n", key);
@@ -217,7 +220,7 @@ void onKey(uint8_t key)
 
     index_b++;
 
-    if (keyData == 0x0a && demoPtr -> connected())
+    if (keyData == 0x0a && demoPtr != NULL && demoPtr -> connected())
     {
         for (int i = 0; i < index_b; i++)
         {
@@ -256,7 +259,7 @@ void keyboard_task(void const *) {
 int main()
 {
 
-
+    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
     BLE &ble = BLE::Instance();
     ble.onEventsToProcess(schedule_ble_events);
     USB_Device demo(ble, event_queue);
@@ -265,7 +268,7 @@ int main()
     HIDService hidService(ble);
     demo.start();
 
-    Thread keyboardTask(keyboard_task, NULL, osPriorityNormal, 1024 * 4);
+    
 
     return 0;
 }
