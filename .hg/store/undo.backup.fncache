@@ -18,6 +18,3 @@ data/img/notifications.png.i
 data/img/start_scan.png.i
 data/shields/TARGET_ST_BLUENRG.lib.i
 data/readme.md.i
-data/source/examples_common.h.i
-data/source/examples_common.cpp.i
-data/BLE_HID.lib.i

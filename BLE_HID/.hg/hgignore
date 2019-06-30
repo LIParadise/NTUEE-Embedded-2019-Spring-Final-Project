@@ -26,7 +26,3 @@ Debug
 mbed_settings.py
 *.py[cod]
 # subrepo ignores
-shields/TARGET_CORDIO_BLUENRG
-USBHOST
-mbed-os
-BLE_HID
